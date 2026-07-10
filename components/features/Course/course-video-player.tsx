@@ -9,197 +9,212 @@ import {
   TheaterIcon,
   VolumeIcon,
 } from "@/components/ui/icons";
+import {
+  formatTime,
+  getProgressPercentage,
+  isOrganicPlaybackStep,
+  loadVideoProgress,
+  PROGRESS_SAVE_INTERVAL,
+  readVideoDuration,
+  saveVideoProgress,
+  toggleVideoFullscreen,
+  isVideoFullscreen,
+} from "@/utils/functions";
 import { useEffect, useRef, useState } from "react";
-import "./course-video-player.css";
-import { formatTime, readVideoDuration } from "@/utils/functions";
 
-const DEMO_SRC = "/videos/demo-video.mp4";
+const VIDEO_SRC = "/videos/demo-video.mp4";
 
-type ControlsProps = {
-  playing: boolean;
-  progress: number;
-  currentTime: number;
-  duration: number;
-  volume: number;
-  muted: boolean;
-  fullscreen: boolean;
-  theaterMode: boolean;
-  onTogglePlay: () => void;
-  onSeek: (pct: number) => void;
-  onVolumeChange: (val: number) => void;
-  onToggleMute: () => void;
-  onToggleFullscreen: () => void;
-  onToggleTheater: () => void;
-};
-
-function Controls({
-  playing,
-  progress,
-  currentTime,
-  duration,
-  volume,
-  muted,
-  fullscreen,
-  theaterMode,
-  onTogglePlay,
-  onSeek,
-  onVolumeChange,
-  onToggleMute,
-  onToggleFullscreen,
-  onToggleTheater,
-}: ControlsProps) {
-  return (
-    <div className="video-controls" onClick={(e) => e.stopPropagation()}>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        step={0.1}
-        value={progress}
-        onChange={(e) => onSeek(Number(e.target.value))}
-        className="video-controls__seek"
-      />
-
-      <div className="video-controls__row">
-        <button
-          type="button"
-          onClick={onTogglePlay}
-          className="video-controls__btn"
-          aria-label={playing ? "Pause" : "Play"}
-        >
-          {playing ? <PauseIcon /> : <PlayIcon />}
-        </button>
-
-        <span className="video-controls__time">
-          {formatTime(currentTime)} / {formatTime(duration)}
-        </span>
-
-        <div className="video-controls__volume">
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className="video-controls__btn"
-            aria-label={muted ? "Unmute" : "Mute"}
-          >
-            {muted || volume === 0 ? <MutedIcon /> : <VolumeIcon />}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={muted ? 0 : volume}
-            onChange={(e) => onVolumeChange(Number(e.target.value))}
-            className="video-controls__volume-slider"
-          />
-        </div>
-
-        <div className="video-controls__actions">
-          <button
-            type="button"
-            onClick={onToggleTheater}
-            className="video-controls__btn"
-            aria-label="Theater mode"
-          >
-            <TheaterIcon active={theaterMode} />
-          </button>
-          <button
-            type="button"
-            onClick={onToggleFullscreen}
-            className="video-controls__btn"
-            aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
-          >
-            {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type VideoPlayerProps = {
-  src?: string;
-};
-
-function VideoPlayer({ src = DEMO_SRC }: VideoPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+export default function CourseVideoPlayer() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const lastTickTimeRef = useRef(0);
+  const watchedTimeRef = useRef(0);
+  const playbackTimeRef = useRef(0);
+  const lastPersistedWatchedRef = useRef(0);
+  const isSeekingRef = useRef(false);
+  const isDraggingSeekRef = useRef(false);
 
   const [playing, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const durationRef = useRef(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [seekValue, setSeekValue] = useState(0);
   const [volume, setVolume] = useState(1);
   const [muted, setMuted] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [theaterMode, setTheaterMode] = useState(false);
+  const [watchedTime, setWatchedTime] = useState(0);
+  const [progressPercent, setProgressPercent] = useState(0);
+
+  useEffect(() => {
+    const layout = document.getElementById("course-details-layout");
+    if (!layout) return;
+
+    if (theaterMode) {
+      layout.setAttribute("data-theater", "true");
+    } else {
+      layout.removeAttribute("data-theater");
+    }
+
+    return () => layout.removeAttribute("data-theater");
+  }, [theaterMode]);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    durationRef.current = 0;
-    setDuration(0);
-    setCurrentTime(0);
-    setProgress(0);
+    const syncProgressState = (totalDuration: number) => {
+      const percent = getProgressPercentage(watchedTimeRef.current, totalDuration);
+      setWatchedTime(watchedTimeRef.current);
+      setProgressPercent(percent);
+    };
 
-    const syncDuration = () => {
-      const next = readVideoDuration(video);
-      if (next <= 0) return;
+    const syncPlaybackUi = () => {
+      const totalDuration = readVideoDuration(video);
+      const time = video.currentTime;
 
-      if (
-        durationRef.current === 0 &&
-        video.currentTime > 0 &&
-        next <= video.currentTime + 1
-      ) {
-        return;
+      setCurrentTime(time);
+      if (!isDraggingSeekRef.current && totalDuration > 0) {
+        setSeekValue((time / totalDuration) * 100);
+      }
+    };
+
+    const persistProgress = (force = false) => {
+      const watchedDelta = watchedTimeRef.current - lastPersistedWatchedRef.current;
+      if (!force && watchedDelta < PROGRESS_SAVE_INTERVAL) return;
+
+      saveVideoProgress(VIDEO_SRC, {
+        watchedTime: watchedTimeRef.current,
+        playbackTime: playbackTimeRef.current,
+      });
+
+      lastPersistedWatchedRef.current = watchedTimeRef.current;
+      syncProgressState(readVideoDuration(video));
+    };
+
+    const restoreProgress = () => {
+      const totalDuration = readVideoDuration(video);
+      if (totalDuration > 0) setDuration(totalDuration);
+
+      const saved = loadVideoProgress(VIDEO_SRC);
+      watchedTimeRef.current = saved.watchedTime;
+      playbackTimeRef.current = saved.playbackTime;
+      lastPersistedWatchedRef.current = saved.watchedTime;
+      lastTickTimeRef.current = saved.playbackTime;
+
+      if (saved.playbackTime > 0 && saved.playbackTime < totalDuration) {
+        video.currentTime = saved.playbackTime;
       }
 
-      if (next > durationRef.current) {
-        durationRef.current = next;
-        setDuration(next);
+      syncProgressState(totalDuration);
+      syncPlaybackUi();
+    };
+
+    const onLoadedMetadata = () => {
+      const totalDuration = readVideoDuration(video);
+      if (totalDuration > 0) setDuration(totalDuration);
+      restoreProgress();
+    };
+
+    const onDurationChange = () => {
+      const totalDuration = readVideoDuration(video);
+      if (totalDuration > 0) {
+        setDuration(totalDuration);
+        syncProgressState(totalDuration);
+        syncPlaybackUi();
       }
     };
 
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
-    const onTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
-      const total = durationRef.current || readVideoDuration(video);
-      if (total > 0) {
-        setProgress((video.currentTime / total) * 100);
+
+    const onPause = () => {
+      setPlaying(false);
+      if (!isSeekingRef.current && !video.seeking) {
+        persistProgress(true);
       }
     };
-    const onEnded = () => setPlaying(false);
 
-    syncDuration();
+    const onSeeking = () => {
+      isSeekingRef.current = true;
+    };
 
+    const onSeeked = () => {
+      isSeekingRef.current = false;
+      lastTickTimeRef.current = video.currentTime;
+      syncPlaybackUi();
+    };
+
+    const onTimeUpdate = () => {
+      syncPlaybackUi();
+
+      if (isSeekingRef.current || video.seeking) return;
+
+      const time = video.currentTime;
+      const previousTime = lastTickTimeRef.current;
+      const totalDuration = readVideoDuration(video);
+
+      if (isOrganicPlaybackStep(previousTime, time)) {
+        const delta = time - previousTime;
+        watchedTimeRef.current += delta;
+        playbackTimeRef.current = time;
+        syncProgressState(totalDuration);
+        persistProgress();
+      }
+
+      lastTickTimeRef.current = time;
+    };
+
+
+    const onEnded = () => {
+      const totalDuration = readVideoDuration(video);
+      if (totalDuration > 0) {
+        watchedTimeRef.current = Math.max(watchedTimeRef.current, totalDuration);
+        playbackTimeRef.current = totalDuration;
+      }
+      persistProgress(true);
+      syncProgressState(totalDuration);
+      syncPlaybackUi();
+    };
+
+    video.addEventListener("loadedmetadata", onLoadedMetadata);
+    video.addEventListener("durationchange", onDurationChange);
     video.addEventListener("play", onPlay);
     video.addEventListener("pause", onPause);
+    video.addEventListener("seeking", onSeeking);
+    video.addEventListener("seeked", onSeeked);
     video.addEventListener("timeupdate", onTimeUpdate);
-    video.addEventListener("loadedmetadata", syncDuration);
-    video.addEventListener("loadeddata", syncDuration);
-    video.addEventListener("durationchange", syncDuration);
-    video.addEventListener("canplay", syncDuration);
     video.addEventListener("ended", onEnded);
 
+    if (video.readyState >= 1) {
+      onLoadedMetadata();
+    }
+
     return () => {
+      video.removeEventListener("loadedmetadata", onLoadedMetadata);
+      video.removeEventListener("durationchange", onDurationChange);
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
+      video.removeEventListener("seeking", onSeeking);
+      video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("timeupdate", onTimeUpdate);
-      video.removeEventListener("loadedmetadata", syncDuration);
-      video.removeEventListener("loadeddata", syncDuration);
-      video.removeEventListener("durationchange", syncDuration);
-      video.removeEventListener("canplay", syncDuration);
       video.removeEventListener("ended", onEnded);
     };
-  }, [src]);
+  }, []);
 
   useEffect(() => {
-    const onFsChange = () => setFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    const video = videoRef.current;
+    if (!video) return;
+
+    const syncFullscreen = () => setFullscreen(isVideoFullscreen(video));
+
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    video.addEventListener("webkitbeginfullscreen", syncFullscreen);
+    video.addEventListener("webkitendfullscreen", syncFullscreen);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      video.removeEventListener("webkitbeginfullscreen", syncFullscreen);
+      video.removeEventListener("webkitendfullscreen", syncFullscreen);
+    };
   }, []);
 
   useEffect(() => {
@@ -249,25 +264,27 @@ function VideoPlayer({ src = DEMO_SRC }: VideoPlayerProps) {
     }
   }
 
-  function handleSeek(pct: number) {
+  function handleSeekInput(value: number) {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || duration <= 0) return;
 
-    const total = durationRef.current || readVideoDuration(video);
-    if (total <= 0) return;
-
-    video.currentTime = (pct / 100) * total;
-    setProgress(pct);
+    isDraggingSeekRef.current = true;
+    setSeekValue(value);
+    video.currentTime = (value / 100) * duration;
     setCurrentTime(video.currentTime);
   }
 
-  function handleVolumeChange(val: number) {
+  function handleSeekEnd() {
+    isDraggingSeekRef.current = false;
+  }
+
+  function handleVolumeChange(value: number) {
     const video = videoRef.current;
     if (!video) return;
 
-    video.volume = val;
-    setVolume(val);
-    setMuted(val === 0);
+    video.volume = value;
+    setVolume(value);
+    setMuted(value === 0);
   }
 
   function toggleMute() {
@@ -279,52 +296,123 @@ function VideoPlayer({ src = DEMO_SRC }: VideoPlayerProps) {
   }
 
   function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      void containerRef.current?.requestFullscreen();
-    } else {
-      void document.exitFullscreen();
-    }
+    const video = videoRef.current;
+    if (!video) return;
+
+    toggleVideoFullscreen(video, containerRef.current);
   }
 
-  const playerClassName = theaterMode
-    ? "video-player video-player--theater rounded-md"
-    : "video-player rounded-md";
+  const wrapperClassName = theaterMode
+    ? "w-full  max-w-none space-y-3"
+    : "mx-auto w-full space-y-3";
+
+  const playerClassName =
+    "group relative aspect-video w-full overflow-hidden rounded-lg bg-black";
 
   return (
-    <div
-      ref={containerRef}
-      className={playerClassName}
-      data-paused={playing ? "false" : "true"}
-      
-    >
-      <video
-        ref={videoRef}
-        src={src}
-        playsInline
-        preload="auto"
-        onClick={togglePlay}
-        className="video-player__video"
-      />
-      <Controls
-        playing={playing}
-        progress={progress}
-        currentTime={currentTime}
-        duration={duration}
-        volume={volume}
-        muted={muted}
-        fullscreen={fullscreen}
-        theaterMode={theaterMode}
-        onTogglePlay={togglePlay}
-        onSeek={handleSeek}
-        onVolumeChange={handleVolumeChange}
-        onToggleMute={toggleMute}
-        onToggleFullscreen={toggleFullscreen}
-        onToggleTheater={() => setTheaterMode((p) => !p)}
-      />
+    <div className={wrapperClassName} data-theater={theaterMode ? "true" : "false"}>
+      <div
+        ref={containerRef}
+        className={playerClassName}
+        data-paused={playing ? "false" : "true"}
+        data-touch-active="false"
+      >
+        <video
+          ref={videoRef}
+          src={VIDEO_SRC}
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          disableRemotePlayback
+          onClick={togglePlay}
+          className="absolute inset-0 z-0 h-full w-full cursor-pointer object-cover"
+          controls={false}
+          controlsList="nodownload noplaybackrate noremoteplayback"
+        />
+
+        <div
+          className={[
+            "video-controls pointer-events-auto absolute inset-x-0 bottom-0 z-10 px-3 pb-3 pt-8",
+            "bg-linear-to-t from-black/80 via-black/40 to-transparent",
+            "opacity-100 transition-opacity duration-200",
+            "delay-500 md:opacity-0 md:delay-500",
+            "md:group-hover:opacity-100 md:group-hover:delay-0",
+            "md:group-focus-within:opacity-100 md:group-focus-within:delay-0",
+            "group-data-[paused=true]:opacity-100 group-data-[paused=true]:delay-0",
+            "group-data-[touch-active=true]:opacity-100 group-data-[touch-active=true]:delay-0",
+          ].join(" ")}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={seekValue}
+            onChange={(e) => handleSeekInput(Number(e.target.value))}
+            onMouseUp={handleSeekEnd}
+            onTouchEnd={handleSeekEnd}
+            className="mb-2 h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-white md:h-1"
+            aria-label="Seek"
+          />
+
+          <div className="flex items-center gap-2 text-white md:gap-3">
+            <button
+              type="button"
+              onClick={togglePlay}
+              className="flex size-11 items-center justify-center rounded transition-colors hover:bg-white/20 active:bg-white/30"
+              aria-label={playing ? "Pause" : "Play"}
+            >
+              {playing ? <PauseIcon /> : <PlayIcon />}
+            </button>
+
+            <span className="min-w-24 text-xs tabular-nums">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="flex size-11 items-center justify-center rounded transition-colors hover:bg-white/20 active:bg-white/30"
+                aria-label={muted ? "Unmute" : "Mute"}
+              >
+                {muted || volume === 0 ? <MutedIcon /> : <VolumeIcon />}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={muted ? 0 : volume}
+                onChange={(e) => handleVolumeChange(Number(e.target.value))}
+                className="h-1.5 w-16 cursor-pointer appearance-none rounded-full bg-white/30 accent-white md:h-1 md:w-20"
+                aria-label="Volume"
+              />
+            </div>
+
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setTheaterMode((prev) => !prev)}
+                className="hidden md:flex size-11 items-center justify-center rounded transition-colors hover:bg-white/20 active:bg-white/30"
+                aria-label="Theater mode"
+              >
+                <TheaterIcon active={theaterMode} />
+              </button>
+              <button
+                type="button"
+                onClick={toggleFullscreen}
+                className="flex size-11 items-center justify-center rounded transition-colors hover:bg-white/20 active:bg-white/30"
+                aria-label={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+              >
+                {fullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   );
-}
-
-export default function CourseVideoPlayer() {
-  return <VideoPlayer />;
 }
