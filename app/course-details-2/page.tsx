@@ -7,12 +7,12 @@ import { ChatIcon, CurriculumIcon, FAQIcon, LeaderBoardIcon } from "@/components
 import CourseMaterials from "@/components/features/Course/course-materials";
 import CourseTopics from "@/components/features/Course/course-topics";
 import Testomonials from "@/components/features/Course/testomonials";
-import ExamModal from "@/components/features/Course/ExamModal";
-import { useState } from "react";
+import ExamModal from "@/components/features/Course/exam-modal";
+import { ASK_QUESTION_MODAL_ID, EXAM_MODAL_ID, handleLeaderBoardModalOpen, LEADER_BOARD_MODAL_ID, openAskQuestionModal, openModal } from "@/utils/modal";
+import LeaderBoardModal from "@/components/features/Course/leaderboard-modal";
+import AskQuesModal from "@/components/features/Course/ask-ques-modal";
 
 export default function CourseDetails2Page() {
-  const [isExamOpen, setIsExamOpen] = useState(false);
-
   return (
     <section className="overflow-x-clip">
       <div className="bg-primary p-5 md:p-10">
@@ -36,12 +36,12 @@ export default function CourseDetails2Page() {
                 },
                 {
                   name: "FAQ",
-                  onClick: () => setIsExamOpen(true),
+                  onClick: () => openAskQuestionModal(),
                   icon: <FAQIcon />,
                 },
                 {
                   name: "Leaderboard",
-                  href: "#leaderboard",
+                  onClick: () => handleLeaderBoardModalOpen(),
                   icon: <LeaderBoardIcon />,
                 },
                 { name: "Chat", href: "#comments", icon: <ChatIcon /> },
@@ -60,7 +60,9 @@ export default function CourseDetails2Page() {
         </div>
       </div>
 
-      <ExamModal open={isExamOpen} onClose={() => setIsExamOpen(false)} />
+      <ExamModal id={EXAM_MODAL_ID} />
+      <LeaderBoardModal  id={LEADER_BOARD_MODAL_ID} lessonName="Lesson 1" />
+      <AskQuesModal id={ASK_QUESTION_MODAL_ID} />
     </section>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import ExamModal from "./ExamModal";
+import { EXAM_MODAL_ID, openModal } from "@/utils/modal";
 import { useState } from "react";
 import { DocumentIcon, LockIcon, MinusIcon, PlusIcon } from "@/components/ui/icons";
 import type { CourseTopicSection, Topic, TopicSection } from "@/constants";
@@ -158,22 +158,16 @@ function TopicRow({
 }
 
 export default function TopicsCard({ section }: TopicsCardProps) {
-  const [isExamOpen, setIsExamOpen] = useState(false);
-
   return (
-    <>
-      <div className="w-full overflow-hidden rounded-md border border-gray-200 bg-white">
-        {section.topics.map((topic, index) => (
-          <TopicRow
-            key={`${section.id}-${topic.id}`}
-            topic={topic}
-            defaultOpen={index === 0}
-            onQuizClick={() => setIsExamOpen(true)}
-          />
-        ))}
-      </div>
-
-      <ExamModal open={isExamOpen} onClose={() => setIsExamOpen(false)} />
-    </>
+    <div className="w-full overflow-hidden rounded-md border border-gray-200 bg-white">
+      {section.topics.map((topic, index) => (
+        <TopicRow
+          key={`${section.id}-${topic.id}`}
+          topic={topic}
+          defaultOpen={index === 0}
+          onQuizClick={() => openModal(EXAM_MODAL_ID)}
+        />
+      ))}
+    </div>
   );
 }

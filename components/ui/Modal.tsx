@@ -1,58 +1,41 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-
-const lockBodyScroll = () => {
-  document.body.style.overflow = "hidden";
-};
-
-const unlockBodyScroll = () => {
-  document.body.style.overflow = "";
-};
+import { closeModal } from "@/utils/modal";
+import { useEffect } from "react";
 
 export default function Modal({
   children,
-  open,
-  onClose,
+  id,
 }: {
   children: React.ReactNode;
-  open: boolean;
-  onClose: () => void;
+  id: string;
 }) {
-  const modalRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
-    if (!open) return;
-
-    lockBodyScroll();
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+      if (event.key !== "Escape") return;
+
+      const modal = document.getElementById(id);
+      if (!modal || modal.classList.contains("hidden")) return;
+
+      closeModal(id);
     };
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
-      unlockBodyScroll();
     };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
-  }
+  }, [id]);
 
   return (
     <div
-      ref={modalRef}
+      id={id}
       onClick={(event) => {
         if (event.target === event.currentTarget) {
-          onClose();
+          closeModal(id);
         }
       }}
-      className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto overscroll-contain p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-100 hidden items-center justify-center overflow-y-auto overscroll-contain p-4 backdrop-blur-sm"
     >
       {children}
     </div>

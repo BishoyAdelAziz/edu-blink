@@ -2,6 +2,7 @@
 
 import Modal from "@/components/ui/Modal";
 import { AlarmIcon, ArrowLeftIcon } from "@/components/ui/icons";
+import { closeModal, MODAL_OPEN_EVENT } from "@/utils/modal";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type ExamOption = {
@@ -126,13 +127,7 @@ export const QuestionNumberIndicator = ({
   );
 };
 
-export default function ExamModal({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
+export default function ExamModal({ id }: { id: string }) {
   const [activeQuestion, setActiveQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>(
     {},
@@ -225,9 +220,7 @@ export default function ExamModal({
     goToQuestion(questionIndex + 1);
   };
 
-  useEffect(() => {
-    if (!open) return;
-
+  const resetExam = useCallback(() => {
     setActiveQuestion(0);
     setSelectedAnswers({});
     activeQuestionRef.current = 0;
@@ -239,11 +232,22 @@ export default function ExamModal({
       container.scrollTo({ left: 0, behavior: "instant" });
       applyActiveQuestion(0);
     });
-  }, [open, applyActiveQuestion]);
+  }, [applyActiveQuestion]);
+
+  useEffect(() => {
+    const modal = document.getElementById(id);
+    if (!modal) return;
+
+    modal.addEventListener(MODAL_OPEN_EVENT, resetExam);
+
+    return () => {
+      modal.removeEventListener(MODAL_OPEN_EVENT, resetExam);
+    };
+  }, [id, resetExam]);
 
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container || !open) return;
+    if (!container) return;
 
     const onScroll = () => {
       if (scrollLockIndexRef.current !== null) return;
@@ -273,16 +277,16 @@ export default function ExamModal({
         window.clearTimeout(manualScrollSyncTimerRef.current);
       }
     };
-  }, [open, syncIndicatorFromScroll]);
+  }, [syncIndicatorFromScroll]);
 
   return (
-    <Modal open={open} onClose={onClose}>
+    <Modal id={id}>
       <div
         className="relative z-1000 flex h-[70vh] w-[90vw] flex-col items-center gap-4 rounded-lg bg-secondary py-5 md:min-h-[60vh] md:max-w-[30vw]"
         onClick={(event) => event.stopPropagation()}
       >
         <ArrowLeftIcon
-          onClick={onClose}
+          onClick={() => closeModal(id)}
           className="absolute left-5 top-5 cursor-pointer text-sm font-bold text-white"
         />
         <TimeComponent />

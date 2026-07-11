@@ -12,6 +12,7 @@ interface TextBoxInputProps<TFieldValues extends FieldValues> {
   register: UseFormRegister<TFieldValues>;
   errors: FieldErrors<TFieldValues>;
   showLabel?: boolean;
+  className?: string;
 }
 
 export default function TextBoxInput<TFieldValues extends FieldValues>({
@@ -21,13 +22,14 @@ export default function TextBoxInput<TFieldValues extends FieldValues>({
   register,
   errors,
   showLabel = true,
+  className,
 }: TextBoxInputProps<TFieldValues>) {
   const errorMessage = errors[name]?.message;
 
   return (
-    <div className="group">
+    <div className={`group ${className}`}>
       {showLabel && (
-        <label htmlFor={name} className="text-md font-semibold group-focus-within:text-2xl transition-all duration-700">
+        <label htmlFor={name} className={`text-md  font-semibold group-focus-within:text-2xl transition-all duration-700`}>
           {label}
         </label>
       )}
