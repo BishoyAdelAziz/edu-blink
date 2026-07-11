@@ -1,3 +1,5 @@
+"use client";
+
 import { courseDetailsSeo } from "@/constants/course-details";
 import CourseVideoPlayer from "@/components/features/Course/course-video-player";
 import CourseNav from "@/components/features/Course/course-nav";
@@ -6,7 +8,11 @@ import CourseMaterials from "@/components/features/Course/course-materials";
 import CourseTopics from "@/components/features/Course/course-topics";
 import Testomonials from "@/components/features/Course/testomonials";
 import ExamModal from "@/components/features/Course/ExamModal";
+import { useState } from "react";
+
 export default function CourseDetails2Page() {
+  const [isExamOpen, setIsExamOpen] = useState(false);
+
   return (
     <section className="overflow-x-clip">
       <div className="bg-primary p-5 md:p-10">
@@ -16,17 +22,31 @@ export default function CourseDetails2Page() {
       </div>
       <div
         id="course-details-layout"
-        className="group/layout py-5 mx-auto transition-all duration-700 ease-in-out motion-reduce:transition-none grid w-full grid-cols-1 gap-5 px-5 md:gap-8 md:px-10 lg:grid-cols-3"
+        className="group/layout mx-auto grid w-full grid-cols-1 gap-5 px-5 py-5 transition-all duration-700 ease-in-out motion-reduce:transition-none md:gap-8 md:px-10 lg:grid-cols-3"
       >
-        <div className="video-slot order-1 pt-5 sticky top-0 z-100 min-w-0 bg-white md:static lg:col-span-2 group-data-[theater=true]/layout:static group-data-[theater=true]/layout:lg:col-span-3">
+        <div className="video-slot order-1 sticky top-0 z-100 min-w-0 bg-white pt-5 md:static lg:col-span-2 group-data-[theater=true]/layout:static group-data-[theater=true]/layout:lg:col-span-3">
           <CourseVideoPlayer />
           <div className="mt-5">
-            <CourseNav routes={[
-              {name: "Curriculum", href: "#curriculum", icon: <CurriculumIcon />},
-              {name: "FAQ", href: "#faq", icon: <FAQIcon />},
-              {name: "Leaderboard", href: "#leaderboard", icon: <LeaderBoardIcon />},
-              {name: "Chat", href: "#chat", icon: <ChatIcon />},
-            ]} />
+            <CourseNav
+              routes={[
+                {
+                  name: "Curriculum",
+                  href: "#curriculum",
+                  icon: <CurriculumIcon />,
+                },
+                {
+                  name: "FAQ",
+                  onClick: () => setIsExamOpen(true),
+                  icon: <FAQIcon />,
+                },
+                {
+                  name: "Leaderboard",
+                  href: "#leaderboard",
+                  icon: <LeaderBoardIcon />,
+                },
+                { name: "Chat", href: "#chat", icon: <ChatIcon /> },
+              ]}
+            />
           </div>
         </div>
         <div className="materials-slot order-2 min-w-0 lg:col-span-2 group-data-[theater=true]/layout:lg:col-span-3">
@@ -39,7 +59,8 @@ export default function CourseDetails2Page() {
           <Testomonials />
         </div>
       </div>
-      <ExamModal />
+
+      <ExamModal open={isExamOpen} onClose={() => setIsExamOpen(false)} />
     </section>
   );
 }

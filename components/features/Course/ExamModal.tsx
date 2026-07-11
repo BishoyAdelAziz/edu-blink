@@ -13,7 +13,6 @@ type ExamQuestion = {
   question: string;
   options: ExamOption[];
 };
-
 const EXAM_QUESTIONS: ExamQuestion[] = [
   {
     question: "What is the primary goal of on-page SEO?",
@@ -50,7 +49,7 @@ const EXAM_QUESTIONS: ExamQuestion[] = [
 export const TimeComponent = () => {
   return (
     <div className="flex h-5 w-30 items-center justify-center gap-2 rounded-lg bg-yellow-500 p-5 font-semibold">
-      <AlarmIcon className="text-xs text-white" />
+      <AlarmIcon  className="text-xs z-600 text-white cursor-pointer" />
       <p className="text-lg font-semibold text-white">10:00</p>
     </div>
   );
@@ -126,7 +125,13 @@ export const QuestionNumberIndicator = ({
   );
 };
 
-export default function ExamModal() {
+export default function ExamModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   const [activeQuestion, setActiveQuestion] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>(
     {},
@@ -221,12 +226,15 @@ export default function ExamModal() {
   }, []);
 
   return (
-    <Modal>
+    <Modal open={open} onClose={onClose}>
       <div
         className="relative z-1000 flex h-[70vh] w-[90vw] flex-col items-center gap-4 rounded-lg bg-secondary py-5 md:min-h-[60vh] md:max-w-[30vw]"
         onClick={(event) => event.stopPropagation()}
       >
-        <ArrowLeftIcon className="absolute left-5 top-5 cursor-pointer text-sm font-bold text-white" />
+        <ArrowLeftIcon
+          onClick={onClose}
+          className="absolute left-5 top-5 cursor-pointer text-sm font-bold text-white"
+        />
         <TimeComponent />
 
         <div className="relative z-10 flex w-full items-center justify-center gap-2">

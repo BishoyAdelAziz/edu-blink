@@ -432,11 +432,12 @@ export function MinusIcon({ size = "md", className }: IconProps) {
     </svg>
   );
 }
-export function ArrowLeftIcon({ size = "md", className }: IconProps) {
+export function ArrowLeftIcon({ size = "md", className, onClick }: IconProps & { onClick?: () => void }) {
   return (
     <svg
       className={iconClass(size, className)}
-      fill="none"
+      onClick={onClick ?? undefined}
+      fill="none"  
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
@@ -449,7 +450,7 @@ export function ArrowLeftIcon({ size = "md", className }: IconProps) {
     </svg>
   );
 }
-export function AlarmIcon({ size = "md", className }: IconProps) {
+export function AlarmIcon({ size = "md", className,  }: IconProps ) {
   return (
     <svg
       className={iconClass(size, className)}

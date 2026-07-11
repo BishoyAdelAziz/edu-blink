@@ -1,5 +1,6 @@
 "use client";
 
+import ExamModal from "./ExamModal";
 import { useState } from "react";
 import { DocumentIcon, LockIcon, MinusIcon, PlusIcon } from "@/components/ui/icons";
 import type { CourseTopicSection, Topic, TopicSection } from "@/constants";
@@ -17,11 +18,11 @@ function SectionBadges({
 }) {
   return (
     <>
-      <span className="rounded bg-green-100 px-2 py-1 text-xs  whitespace-nowrap uppercase tracking-wide text-green-500">
+      <span className="rounded bg-green-100 px-2 py-1 text-xs whitespace-nowrap uppercase tracking-wide text-green-500">
         {quizs} {quizs === 1 ? "Question" : "Questions"}
       </span>
       {durationInMinutes > 0 && (
-        <span className="rounded bg-pink-100 px-2 py-1 text-xs whitespace-nowrap  uppercase tracking-wide text-pink-500">
+        <span className="rounded bg-pink-100 px-2 py-1 text-xs whitespace-nowrap uppercase tracking-wide text-pink-500">
           {durationInMinutes} {durationInMinutes === 1 ? "Minute" : "Minutes"}
         </span>
       )}
@@ -29,9 +30,24 @@ function SectionBadges({
   );
 }
 
-function TopicLeafRow({ topic }: { topic: Topic }) {
+function TopicLeafRow({
+  topic,
+  onQuizClick,
+}: {
+  topic: Topic;
+  onQuizClick?: () => void;
+}) {
+  const isQuiz = topic.quizs > 0;
+
   return (
-    <div className="flex w-full items-center justify-between border-b border-gray-200 px-4 py-3 last:border-b-0">
+    <button
+      type="button"
+      onClick={isQuiz ? onQuizClick : undefined}
+      disabled={!isQuiz}
+      className={`flex w-full items-center justify-between border-b border-gray-200 px-4 py-3 text-left last:border-b-0 ${
+        isQuiz ? "cursor-pointer hover:bg-gray-50" : "cursor-default"
+      }`}
+    >
       <div className="flex items-center gap-3">
         <DocumentIcon size={20} />
         <p className="text-sm font-medium text-gray-800">{topic.title}</p>
@@ -45,7 +61,7 @@ function TopicLeafRow({ topic }: { topic: Topic }) {
         )}
         <LockIcon size={20} />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -126,29 +142,38 @@ function TopicAccordion({
 function TopicRow({
   topic,
   defaultOpen = false,
+  onQuizClick,
 }: {
   topic: Topic;
   defaultOpen?: boolean;
+  onQuizClick?: () => void;
 }) {
   const hasSections = Boolean(topic.sections?.length);
 
   if (!hasSections) {
-    return <TopicLeafRow topic={topic} />;
+    return <TopicLeafRow topic={topic} onQuizClick={onQuizClick} />;
   }
 
   return <TopicAccordion topic={topic} defaultOpen={defaultOpen} />;
 }
 
 export default function TopicsCard({ section }: TopicsCardProps) {
+  const [isExamOpen, setIsExamOpen] = useState(false);
+
   return (
-    <div className="w-full overflow-hidden rounded-md border border-gray-200 bg-white">
-      {section.topics.map((topic, index) => (
-        <TopicRow
-          key={`${section.id}-${topic.id}`}
-          topic={topic}
-          defaultOpen={index === 0}
-        />
-      ))}
-    </div>
+    <>
+      <div className="w-full overflow-hidden rounded-md border border-gray-200 bg-white">
+        {section.topics.map((topic, index) => (
+          <TopicRow
+            key={`${section.id}-${topic.id}`}
+            topic={topic}
+            defaultOpen={index === 0}
+            onQuizClick={() => setIsExamOpen(true)}
+          />
+        ))}
+      </div>
+
+      <ExamModal open={isExamOpen} onClose={() => setIsExamOpen(false)} />
+    </>
   );
 }

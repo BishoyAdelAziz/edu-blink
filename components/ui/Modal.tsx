@@ -1,38 +1,60 @@
-"use client"
-import {useEffect, useRef} from "react"
+"use client";
 
-const handleClose = (modalRef: React.RefObject<HTMLDivElement | null>) => {
-    if (modalRef.current) {
-        modalRef.current.style.display = "none"
-    }
-}
+import { useEffect, useRef } from "react";
 
-export default function Modal({ children }: { children: React.ReactNode }){
-    const modalRef = useRef<HTMLDivElement>(null)
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-          if (e.key === "Escape" || e.key === "Backspace") {
-            handleClose(modalRef);
-          }
-        };
-      
-        window.addEventListener("keydown", handleKeyDown);
-      
-        return () => {
-          window.removeEventListener("keydown", handleKeyDown);
-        };
-      }, []);
-    return (
-        <div
-            ref={modalRef}
-            onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                    handleClose(modalRef);
-                }
-            }}
-            className="fixed inset-0 z-100 flex items-center justify-center backdrop-blur-sm"
-        >
-            {children}
-        </div>
-    );
+const lockBodyScroll = () => {
+  document.body.style.overflow = "hidden";
+};
+
+const unlockBodyScroll = () => {
+  document.body.style.overflow = "";
+};
+
+export default function Modal({
+  children,
+  open,
+  onClose,
+}: {
+  children: React.ReactNode;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    lockBodyScroll();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      unlockBodyScroll();
+    };
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div
+      ref={modalRef}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-100 flex items-center justify-center overflow-y-auto overscroll-contain p-4 backdrop-blur-sm"
+    >
+      {children}
+    </div>
+  );
 }
