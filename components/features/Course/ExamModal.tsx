@@ -2,7 +2,7 @@
 
 import Modal from "@/components/ui/Modal";
 import { AlarmIcon, ArrowLeftIcon } from "@/components/ui/icons";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ExamOption = {
   text: string;
@@ -13,6 +13,7 @@ type ExamQuestion = {
   question: string;
   options: ExamOption[];
 };
+
 const EXAM_QUESTIONS: ExamQuestion[] = [
   {
     question: "What is the primary goal of on-page SEO?",
@@ -49,7 +50,7 @@ const EXAM_QUESTIONS: ExamQuestion[] = [
 export const TimeComponent = () => {
   return (
     <div className="flex h-5 w-30 items-center justify-center gap-2 rounded-lg bg-yellow-500 p-5 font-semibold">
-      <AlarmIcon  className="text-xs z-600 text-white cursor-pointer" />
+      <AlarmIcon className="z-600 cursor-pointer text-xs text-white" />
       <p className="text-lg font-semibold text-white">10:00</p>
     </div>
   );
@@ -114,7 +115,7 @@ export const QuestionNumberIndicator = ({
         onSelect(index);
       }}
       aria-current={isActive ? "step" : undefined}
-      className={`relative z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full font-semibold ${
+      className={`relative z-10 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full font-semibold transition-none ${
         isActive
           ? "bg-white text-secondary ring-1 ring-white"
           : "bg-secondary text-white ring-1 ring-white"
@@ -138,92 +139,141 @@ export default function ExamModal({
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const isProgrammaticScrollRef = useRef(false);
+  const activeQuestionRef = useRef(0);
+  const scrollLockIndexRef = useRef<number | null>(null);
+  const manualScrollSyncTimerRef = useRef<number | null>(null);
 
-  const scrollToQuestion = (index: number) => {
-    if (index < 0 || index >= EXAM_QUESTIONS.length) return;
-
-    const container = scrollContainerRef.current;
-    const slide = slideRefs.current[index];
-
-    if (!container || !slide) return;
-
+  const applyActiveQuestion = useCallback((index: number) => {
+    if (activeQuestionRef.current === index) return;
+    activeQuestionRef.current = index;
     setActiveQuestion(index);
+  }, []);
 
-    const targetLeft =
-      slide.offsetLeft - (container.clientWidth - slide.clientWidth) / 2;
-    const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
-    const nextScrollLeft = Math.min(Math.max(0, targetLeft), maxScroll);
+  const resolveActiveQuestionIndex = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return 0;
 
-    isProgrammaticScrollRef.current = true;
-    container.style.scrollSnapType = "none";
+    const containerCenter = container.scrollLeft + container.clientWidth / 2;
 
-    container.scrollTo({
-      left: nextScrollLeft,
-      behavior: "smooth",
+    let closestIndex = 0;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    slideRefs.current.forEach((slide, index) => {
+      if (!slide) return;
+
+      const slideCenter = slide.offsetLeft + slide.clientWidth / 2;
+      const distance = Math.abs(slideCenter - containerCenter);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
+      }
     });
 
-    const finishScroll = () => {
-      container.style.scrollSnapType = "";
-      isProgrammaticScrollRef.current = false;
-      setActiveQuestion(index);
-    };
+    return closestIndex;
+  }, []);
 
-    if ("onscrollend" in container) {
-      const onScrollEnd = () => {
-        container.removeEventListener("scrollend", onScrollEnd);
-        finishScroll();
+  const syncIndicatorFromScroll = useCallback(() => {
+    if (scrollLockIndexRef.current !== null) return;
+
+    const resolvedIndex = resolveActiveQuestionIndex();
+    applyActiveQuestion(resolvedIndex);
+  }, [applyActiveQuestion, resolveActiveQuestionIndex]);
+
+  const goToQuestion = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= EXAM_QUESTIONS.length) return;
+
+      const container = scrollContainerRef.current;
+      const slide = slideRefs.current[index];
+      if (!container || !slide) return;
+
+      scrollLockIndexRef.current = index;
+      applyActiveQuestion(index);
+
+      const targetLeft =
+        slide.offsetLeft - (container.clientWidth - slide.clientWidth) / 2;
+      const maxScroll = Math.max(0, container.scrollWidth - container.clientWidth);
+      const nextScrollLeft = Math.min(Math.max(0, targetLeft), maxScroll);
+
+      container.style.scrollSnapType = "none";
+      container.scrollTo({
+        left: nextScrollLeft,
+        behavior: "smooth",
+      });
+
+      const finishScroll = () => {
+        container.style.scrollSnapType = "";
+        scrollLockIndexRef.current = null;
+        applyActiveQuestion(resolveActiveQuestionIndex());
       };
-      container.addEventListener("scrollend", onScrollEnd);
-    }
 
-    window.setTimeout(finishScroll, 500);
-  };
+      if ("onscrollend" in container) {
+        container.addEventListener("scrollend", finishScroll, { once: true });
+      }
 
-  const selectQuestion = (index: number) => {
-    requestAnimationFrame(() => scrollToQuestion(index));
-  };
+      window.setTimeout(finishScroll, 500);
+    },
+    [applyActiveQuestion, resolveActiveQuestionIndex],
+  );
 
   const selectOption = (questionIndex: number, optionIndex: number) => {
     setSelectedAnswers((previous) => ({
       ...previous,
       [questionIndex]: optionIndex,
     }));
+    goToQuestion(questionIndex + 1);
   };
 
   useEffect(() => {
+    if (!open) return;
+
+    setActiveQuestion(0);
+    setSelectedAnswers({});
+    activeQuestionRef.current = 0;
+    scrollLockIndexRef.current = null;
+
+    requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      container.scrollTo({ left: 0, behavior: "instant" });
+      applyActiveQuestion(0);
+    });
+  }, [open, applyActiveQuestion]);
+
+  useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container) return;
+    if (!container || !open) return;
 
-    const syncActiveFromScroll = () => {
-      if (isProgrammaticScrollRef.current) return;
+    const onScroll = () => {
+      if (scrollLockIndexRef.current !== null) return;
 
-      const containerCenter = container.scrollLeft + container.clientWidth / 2;
+      if (manualScrollSyncTimerRef.current !== null) {
+        window.clearTimeout(manualScrollSyncTimerRef.current);
+      }
 
-      let closestIndex = 0;
-      let closestDistance = Number.POSITIVE_INFINITY;
-
-      slideRefs.current.forEach((slide, index) => {
-        if (!slide) return;
-
-        const slideCenter = slide.offsetLeft + slide.clientWidth / 2;
-        const distance = Math.abs(slideCenter - containerCenter);
-
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
-      });
-
-      setActiveQuestion(closestIndex);
+      manualScrollSyncTimerRef.current = window.setTimeout(() => {
+        syncIndicatorFromScroll();
+      }, 120);
     };
 
-    container.addEventListener("scroll", syncActiveFromScroll, { passive: true });
+    const onScrollEnd = () => {
+      if (scrollLockIndexRef.current !== null) return;
+      syncIndicatorFromScroll();
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
+    container.addEventListener("scrollend", onScrollEnd);
 
     return () => {
-      container.removeEventListener("scroll", syncActiveFromScroll);
+      container.removeEventListener("scroll", onScroll);
+      container.removeEventListener("scrollend", onScrollEnd);
+
+      if (manualScrollSyncTimerRef.current !== null) {
+        window.clearTimeout(manualScrollSyncTimerRef.current);
+      }
     };
-  }, []);
+  }, [open, syncIndicatorFromScroll]);
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -243,7 +293,7 @@ export default function ExamModal({
               key={index}
               index={index}
               isActive={index === activeQuestion}
-              onSelect={selectQuestion}
+              onSelect={goToQuestion}
             />
           ))}
         </div>
@@ -259,15 +309,12 @@ export default function ExamModal({
                 slideRefs.current[index] = element;
               }}
               data-question-index={index}
-              className="w-[95%] md:w-[80%] shrink-0 snap-center snap-always"
+              className="w-[95%] shrink-0 snap-center snap-always md:w-[80%]"
             >
               <QuestionComponent
                 examQuestion={examQuestion}
                 selectedOption={selectedAnswers[index] ?? null}
-                onSelectOption={(optionIndex) => {
-                  selectOption(index, optionIndex);
-                  scrollToQuestion(index + 1);
-                }}
+                onSelectOption={(optionIndex) => selectOption(index, optionIndex)}
               />
             </div>
           ))}

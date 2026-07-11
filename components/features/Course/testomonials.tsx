@@ -49,7 +49,7 @@ export default function Testomonials() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5"  >
       <h2 className="text-lg font-semibold">Comments</h2>
 
       <div className="flex flex-col items-stretch justify-center gap-8 divide-y-2 divide-gray-200">

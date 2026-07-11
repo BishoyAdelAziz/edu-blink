@@ -44,7 +44,7 @@ export default function CourseDetails2Page() {
                   href: "#leaderboard",
                   icon: <LeaderBoardIcon />,
                 },
-                { name: "Chat", href: "#chat", icon: <ChatIcon /> },
+                { name: "Chat", href: "#comments", icon: <ChatIcon /> },
               ]}
             />
           </div>
@@ -55,7 +55,7 @@ export default function CourseDetails2Page() {
         <div className="topics-slot order-3 min-w-0 lg:col-span-1 lg:col-start-3 lg:row-start-1 lg:row-span-3 lg:self-start group-data-[theater=true]/layout:lg:col-span-3 group-data-[theater=true]/layout:lg:col-start-1 group-data-[theater=true]/layout:lg:row-span-1 group-data-[theater=true]/layout:lg:row-start-auto">
           <CourseTopics />
         </div>
-        <div className="testimonials-slot order-4 min-w-0 lg:col-span-2 group-data-[theater=true]/layout:lg:col-span-3">
+        <div id="comments" className="testimonials-slot order-4 min-w-0 lg:col-span-2 group-data-[theater=true]/layout:lg:col-span-3">
           <Testomonials />
         </div>
       </div>
