@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Poppins,League_Spartan } from "next/font/google";
+import { League_Spartan } from "next/font/google";
 import "./globals.css";
-
+import { Analytics } from "@vercel/analytics/react";
 const poppins = League_Spartan({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
@@ -28,7 +28,10 @@ export default function RootLayout({
       lang="en"
       className={`${poppins.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full py-5 flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
