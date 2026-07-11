@@ -5,7 +5,7 @@ import { ChatIcon, CurriculumIcon, FAQIcon, LeaderBoardIcon } from "@/components
 import CourseMaterials from "@/components/features/Course/course-materials";
 import CourseTopics from "@/components/features/Course/course-topics";
 import Testomonials from "@/components/features/Course/testomonials";
-
+import ExamModal from "@/components/features/Course/ExamModal";
 export default function CourseDetails2Page() {
   return (
     <section className="overflow-x-clip">
@@ -16,7 +16,7 @@ export default function CourseDetails2Page() {
       </div>
       <div
         id="course-details-layout"
-        className="group/layout mx-auto transition-all duration-700 ease-in-out motion-reduce:transition-none grid w-full grid-cols-1 gap-5 px-5 md:gap-8 md:px-10 lg:grid-cols-3"
+        className="group/layout py-5 mx-auto transition-all duration-700 ease-in-out motion-reduce:transition-none grid w-full grid-cols-1 gap-5 px-5 md:gap-8 md:px-10 lg:grid-cols-3"
       >
         <div className="video-slot order-1 pt-5 sticky top-0 z-100 min-w-0 bg-white md:static lg:col-span-2 group-data-[theater=true]/layout:static group-data-[theater=true]/layout:lg:col-span-3">
           <CourseVideoPlayer />
@@ -39,6 +39,7 @@ export default function CourseDetails2Page() {
           <Testomonials />
         </div>
       </div>
+      <ExamModal />
     </section>
   );
 }

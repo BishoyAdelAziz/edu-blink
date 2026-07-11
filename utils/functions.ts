@@ -1,8 +1,11 @@
 const VIDEO_PROGRESS_PREFIX = "video-progress";
+export const VIDEO_PROGRESS_UPDATED_EVENT = "video-progress-updated";
 
 export type VideoProgress = {
   watchedTime: number;
   playbackTime: number;
+  progressPercent?: number;
+  duration?: number;
 };
 
 export function getVideoProgressKey(src: string) {
@@ -25,6 +28,12 @@ export function loadVideoProgress(src: string): VideoProgress {
     return {
       watchedTime: Number.isFinite(watchedTime) && watchedTime > 0 ? watchedTime : 0,
       playbackTime: Number.isFinite(playbackTime) && playbackTime > 0 ? playbackTime : 0,
+      progressPercent: Number.isFinite(Number(parsed.progressPercent))
+        ? Math.min(100, Math.max(0, Number(parsed.progressPercent)))
+        : undefined,
+      duration: Number.isFinite(Number(parsed.duration)) && Number(parsed.duration) > 0
+        ? Number(parsed.duration)
+        : undefined,
     };
   } catch {
     const legacyTime = Number(stored);
@@ -41,6 +50,26 @@ export function saveVideoProgress(src: string, progress: VideoProgress) {
   if (!Number.isFinite(progress.playbackTime) || progress.playbackTime < 0) return;
 
   localStorage.setItem(getVideoProgressKey(src), JSON.stringify(progress));
+}
+
+export function loadVideoProgressPercent(src: string): number {
+  const { watchedTime, progressPercent, duration } = loadVideoProgress(src);
+
+  if (Number.isFinite(progressPercent)) {
+    return Math.min(100, Math.max(0, progressPercent!));
+  }
+
+  return getProgressPercentage(watchedTime, duration ?? 0);
+}
+
+export function notifyVideoProgressUpdate(src: string, percent: number) {
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent(VIDEO_PROGRESS_UPDATED_EVENT, {
+      detail: { src, percent: Math.min(100, Math.max(0, percent)) },
+    }),
+  );
 }
 
 export function getProgressPercentage(watchedTime: number, duration: number) {

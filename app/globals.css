@@ -6,7 +6,8 @@
 }
 
 @theme {
-  --color-primary: #f5f9fa
+  --color-primary: #f5f9fa;
+  --color-secondary:#4056b9;
 }
 
 

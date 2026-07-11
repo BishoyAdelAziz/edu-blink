@@ -28,7 +28,7 @@ export default function RootLayout({
       lang="en"
       className={`${poppins.variable} h-full scroll-smooth antialiased`}
     >
-      <body className="min-h-full py-5 flex flex-col">
+      <body className="min-h-full  flex flex-col">
         {children}
         <Analytics />
       </body>

@@ -9,11 +9,13 @@ import {
   TheaterIcon,
   VolumeIcon,
 } from "@/components/ui/icons";
+import { COURSE_VIDEO_SRC } from "@/constants/course-video";
 import {
   formatTime,
   getProgressPercentage,
   isOrganicPlaybackStep,
   loadVideoProgress,
+  notifyVideoProgressUpdate,
   PROGRESS_SAVE_INTERVAL,
   readVideoDuration,
   saveVideoProgress,
@@ -22,7 +24,7 @@ import {
 } from "@/utils/functions";
 import { useEffect, useRef, useState } from "react";
 
-const VIDEO_SRC = "/videos/demo-video.mp4";
+const VIDEO_SRC = COURSE_VIDEO_SRC;
 
 export default function CourseVideoPlayer() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export default function CourseVideoPlayer() {
       const percent = getProgressPercentage(watchedTimeRef.current, totalDuration);
       setWatchedTime(watchedTimeRef.current);
       setProgressPercent(percent);
+      notifyVideoProgressUpdate(VIDEO_SRC, percent);
     };
 
     const syncPlaybackUi = () => {
@@ -82,13 +85,21 @@ export default function CourseVideoPlayer() {
       const watchedDelta = watchedTimeRef.current - lastPersistedWatchedRef.current;
       if (!force && watchedDelta < PROGRESS_SAVE_INTERVAL) return;
 
+      const totalDuration = readVideoDuration(video);
+      const progressPercent = getProgressPercentage(
+        watchedTimeRef.current,
+        totalDuration,
+      );
+
       saveVideoProgress(VIDEO_SRC, {
         watchedTime: watchedTimeRef.current,
         playbackTime: playbackTimeRef.current,
+        progressPercent,
+        duration: totalDuration > 0 ? totalDuration : undefined,
       });
 
       lastPersistedWatchedRef.current = watchedTimeRef.current;
-      syncProgressState(readVideoDuration(video));
+      syncProgressState(totalDuration);
     };
 
     const restoreProgress = () => {
